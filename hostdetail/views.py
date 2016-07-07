@@ -21,7 +21,6 @@ def hostusage(request, host_id):
 
     points = 5
     datasets = {}
-    cookies = {}
     compute = Compute.objects.get(id=host_id)
     curent_time = time.strftime("%H:%M:%S")
 
@@ -91,12 +90,13 @@ def hostusage(request, host_id):
         ]
     }
 
+    request.session['cpu'] = datasets['cpu']
+    request.session['timer'] = datasets['timer']
+    request.session['mem'] = datasets['mem']
+
     data = json.dumps({'cpu': cpu, 'memory': memory})
     response = HttpResponse()
     response['Content-Type'] = "text/javascript"
-    response.cookies['cpu'] = datasets['cpu']
-    response.cookies['timer'] = datasets['timer']
-    response.cookies['mem'] = datasets['mem']
     response.write(data)
     return response
 

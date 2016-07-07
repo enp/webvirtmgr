@@ -26,25 +26,24 @@ def instusage(request, host_id, vname):
     if not request.user.is_authenticated():
         return HttpResponseRedirect(reverse('login'))
 
-    cookies = {}
     datasets = {}
     datasets_rd = []
     datasets_wr = []
     json_blk = []
-    cookie_blk = {}
+    session_blk = {}
     blk_error = False
     datasets_rx = []
     datasets_tx = []
     json_net = []
-    cookie_net = {}
+    session_net = {}
+    network = {}
+    disk = {}
     net_error = False
     points = 5
     curent_time = time.strftime("%H:%M:%S")
     compute = Compute.objects.get(id=host_id)
-    cookies = request._get_cookies()
     response = HttpResponse()
     response['Content-Type'] = "text/javascript"
-
     try:
         conn = wvmInstance(compute.hostname,
                            compute.login,
@@ -55,13 +54,12 @@ def instusage(request, host_id, vname):
         blk_usage = conn.disk_usage()
         net_usage = conn.net_usage()
         conn.close()
-
-        if cookies.get('cpu') == '{}' or not cookies.get('cpu') or not cpu_usage:
+        if request.session.get('cpu') == {} or not request.session.get('cpu') or not cpu_usage:
             datasets['cpu'] = [0]
             datasets['timer'] = [curent_time]
         else:
-            datasets['cpu'] = eval(cookies.get('cpu'))
-            datasets['timer'] = eval(cookies.get('timer'))
+            datasets['cpu'] = request.session.get('cpu')
+            datasets['timer'] = request.session.get('timer')
 
         datasets['timer'].append(curent_time)
         datasets['cpu'].append(int(cpu_usage['cpu']))
@@ -85,11 +83,11 @@ def instusage(request, host_id, vname):
         }
 
         for blk in blk_usage:
-            if cookies.get('hdd') == '{}' or not cookies.get('hdd') or not blk_usage:
+            if request.session.get('hdd') == {} or not request.session.get('hdd') or not blk_usage:
                 datasets_wr.append(0)
                 datasets_rd.append(0)
             else:
-                datasets['hdd'] = eval(cookies.get('hdd'))
+                datasets['hdd'] = request.session.get('hdd')
                 try:
                     datasets_rd = datasets['hdd'][blk['dev']][0]
                     datasets_wr = datasets['hdd'][blk['dev']][1]
@@ -126,17 +124,17 @@ def instusage(request, host_id, vname):
                 }
 
             json_blk.append({'dev': blk['dev'], 'data': disk})
-            cookie_blk[blk['dev']] = [datasets_rd, datasets_wr]
+            session_blk[blk['dev']] = [datasets_rd, datasets_wr]
 
         for net in net_usage:
-            if cookies.get('net') == '{}' or not cookies.get('net') or not net_usage:
+            if request.session.get('net') == {} or not request.session.get('net') or not net_usage:
                 datasets_rx.append(0)
                 datasets_tx.append(0)
             else:
-                datasets['net'] = eval(cookies.get('net'))
+                datasets['net'] = request.session.get('net')
                 try:
-                    datasets_rx = datasets['net'][net['dev']][0]
-                    datasets_tx = datasets['net'][net['dev']][1]
+                    datasets_rx = datasets['net'][str(net['dev'])][0]
+                    datasets_tx = datasets['net'][str(net['dev'])][1]
                 except:
                     net_error = True
 
@@ -170,13 +168,14 @@ def instusage(request, host_id, vname):
                 }
 
             json_net.append({'dev': net['dev'], 'data': network})
-            cookie_net[net['dev']] = [datasets_rx, datasets_tx]
+            session_net[net['dev']] = [datasets_rx, datasets_tx]
+
+        request.session['cpu'] = datasets['cpu']
+        request.session['timer'] = datasets['timer']
+        request.session['hdd'] = session_blk
+        request.session['net'] = session_net
 
         data = json.dumps({'cpu': cpu, 'hdd': json_blk, 'net': json_net})
-        response.cookies['cpu'] = datasets['cpu']
-        response.cookies['timer'] = datasets['timer']
-        response.cookies['hdd'] = cookie_blk
-        response.cookies['net'] = cookie_net
         response.write(data)
     except libvirtError:
         data = json.dumps({'error': 'Error 500'})
