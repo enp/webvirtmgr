@@ -15,6 +15,9 @@ if ROOT_PATH not in sys.path:
 # if VENV_PATH not in sys.path:
 # sys.path.append(VENV_PATH)
 
+import django
+django.setup()
+
 import Cookie
 import socket
 from webvirtmgr.settings import WS_PORT, WS_HOST, WS_CERT, WS_KEY
